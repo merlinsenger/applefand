@@ -11,11 +11,9 @@
 // Sensor sysfs input files
 #define T0 "/sys/class/hwmon/hwmon0/temp2_input"
 #define T1 "/sys/class/hwmon/hwmon0/temp3_input"
-#define T2 "/sys/class/hwmon/hwmon0/temp4_input"
-#define T3 "/sys/class/hwmon/hwmon0/temp5_input"
 
 // Number of sensors
-#define SENSORS 4
+#define SENSORS 2
 
 // Fan sysfs output files
 #define FAN "/sys/devices/platform/applesmc.768/fan3_min"
@@ -41,7 +39,7 @@
 int main()
 {
     FILE *fp;
-    const char *files[SENSORS] = { T0, T1, T2, T3 };
+    const char *files[SENSORS] = { T0, T1 };
     char str[BUFLEN];
     int i, speed, celsius;
 
