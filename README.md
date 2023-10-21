@@ -55,3 +55,5 @@ Sep 13 12:06:19 imac applefand[1080]: applefand: CPU temperature is 36°C, setti
 
 Sep 13 11:32:59 imac systemd[1]: Started Apple display backlight brightness daemon.
 ```
+
+It has been some time already since this does not work anymore. Some process or driver is resetting the speed to default with seconds and faster. I have not figured out what is going on so far.
