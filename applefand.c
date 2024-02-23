@@ -11,9 +11,11 @@
 // Sensor sysfs input files
 #define T0 "/sys/class/hwmon/hwmon0/temp2_input"
 #define T1 "/sys/class/hwmon/hwmon0/temp3_input"
+#define T2 "/sys/class/hwmon/hwmon0/temp4_input"
+#define T3 "/sys/class/hwmon/hwmon0/temp5_input"
 
 // Number of sensors
-#define SENSORS 2
+#define SENSORS 4
 
 // Fan sysfs output files
 #define FAN "/sys/devices/platform/applesmc.768/fan3_min"
@@ -22,13 +24,14 @@
 #define BUFLEN 8
 
 // Temperature and fan speed range
-#define COLD 50000
-#define HOT 75000
-#define SLOW 940
-#define FAST 4500
+#define COLD 60000
+#define HOT 83000
+#define IDLE 940
+#define SLOW 1400
+#define FAST 2100
 
 // Sleep time between fan speed adjustment
-#define SLEEP 5
+#define SLEEP 2
 
 // Program output
 #define FORMAT0 "applefand: Set speed between %i and %i rpm proportionally\n"
@@ -39,7 +42,7 @@
 int main()
 {
     FILE *fp;
-    const char *files[SENSORS] = { T0, T1 };
+    const char *files[SENSORS] = { T0, T1, T2, T3 };
     char str[BUFLEN];
     int i, speed, celsius;
 
@@ -65,7 +68,7 @@ int main()
 
       // Calculate speed proportionally, then cap to minimum and maximum
       speed = (FAST - SLOW)  *  (celsius - COLD) / (HOT - COLD)  +  SLOW;
-      speed = speed < SLOW ? SLOW : speed;
+      speed = speed < SLOW ? IDLE : speed;
       speed = speed > FAST ? FAST : speed;
       printf(FORMAT2, celsius / 1000, speed);
 
