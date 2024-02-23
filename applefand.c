@@ -8,17 +8,28 @@
 #include <math.h>
 #include <unistd.h>
 
-// Sensor sysfs input files
-#define T0 "/sys/class/hwmon/hwmon0/temp2_input"
-#define T1 "/sys/class/hwmon/hwmon0/temp3_input"
-#define T2 "/sys/class/hwmon/hwmon0/temp4_input"
-#define T3 "/sys/class/hwmon/hwmon0/temp5_input"
-
-// Number of sensors
-#define SENSORS 4
+// Sensors can be found at
+//
+// - /sys/devices/platform/applesmc.768/
+// - /sys/class/hwmon/hwmon0/
+//
+//
+// We use:
+//
+// - TA0p: Ambient Temperature
+// - TC0C: Central Processing Unit
+// - TG0G: Graphical Processing Unit
+// - TL0p: Liquid Crystal Display
+// - TO0P: Optical Disk Drive
+// - TS2P: ?
+// - Tp2H: Power Supply
+//
+#define AMB "/sys/devices/platform/applesmc.768/temp3_input"    // TA0p, Ambient
+#define CPU "/sys/devices/platform/applesmc.768/temp9_input"	// TC1C, Central Processing Unit
+#define PWR "/sys/devices/platform/applesmc.768/temp34_input"   // Tp2H, Power Supply
 
 // Fan sysfs output files
-#define FAN "/sys/devices/platform/applesmc.768/fan3_min"
+#define LEFT_FAN "/sys/devices/platform/applesmc.768/fan3_min"
 
 // Maximum string buffer length (stores milli-Celsius)
 #define BUFLEN 8
@@ -36,56 +47,64 @@
 // Program output
 #define FORMAT0 "applefand: Set speed between %i and %i rpm proportionally\n"
 #define FORMAT1 "applefand: based on the temperature between %i°C and %i°C\n"
-#define FORMAT2 "applefand: CPU temperature is %i°C, setting speed to %irpm\n"
+#define FORMAT2 "applefand: AMB %i°C CPU %i°C PWR %i°C, setting left fan to to %irpm\n"
 
 // Main function with infinite loop
+
+int readTemperature(char* file)
+{
+	FILE *fp;
+	char str[BUFLEN];
+	fp = fopen(file, "r");
+	if (fp == NULL) {
+		printf("Could not open file %s\n", file);
+		return 1;
+	}
+	if (fgets(str, BUFLEN, fp) == NULL) {
+		printf("Could not read from file %s\n", file);
+		return 1;
+	}
+	fclose(fp);
+	return atoi(str);
+}
+
 int main()
 {
-    FILE *fp;
-    const char *files[SENSORS] = { T0, T1, T2, T3 };
-    char str[BUFLEN];
-    int i, speed, celsius;
+	FILE *fp;
+	char str[BUFLEN];
+	int speed, amb, cpu, pwr;
+	int left_max;
 
-    printf(FORMAT0, SLOW, FAST);
-    printf(FORMAT1, COLD / 1000, HOT / 1000);
+	printf(FORMAT0, SLOW, FAST);
+	printf(FORMAT1, COLD / 1000, HOT / 1000);
 
-    while(1) {
-      // Read each sensor from sysfs and accumulate an average
-      celsius=0;
-      for (i = 0; i < SENSORS; i++) {
-          fp = fopen(files[i], "r");
-          if (fp == NULL) {
-              printf("Could not open file %s\n",files[i]);
-              return 1;
-          }
-          if (fgets(str, BUFLEN, fp) == NULL) {
-              printf("Could not read from file %s\n",files[i]);
-              return 1;
-          }
-          celsius += atoi(str) / SENSORS;
-          fclose(fp);
-      }
+	while(1) {
+		amb = readTemperature(AMB);
+		cpu = readTemperature(CPU);
+		pwr = readTemperature(PWR);
 
-      // Calculate speed proportionally, then cap to minimum and maximum
-      speed = (FAST - SLOW)  *  (celsius - COLD) / (HOT - COLD)  +  SLOW;
-      speed = speed < SLOW ? IDLE : speed;
-      speed = speed > FAST ? FAST : speed;
-      printf(FORMAT2, celsius / 1000, speed);
+		left_max = pwr > cpu ? pwr : cpu;
 
-      // Convert to string and write to fan speed sysfs file
-      snprintf(str, BUFLEN, "%i", speed);
-      fp = fopen(FAN, "w");
-      if (fp == NULL) {
-          printf("Could not open file %s\n",FAN);
-          printf("Do you have sufficient priviliges (are you root?)\n");
-          return 1;
-      }
-      fputs(str, fp);
-      fclose(fp);
+		// Calculate speed proportionally, then cap to minimum and maximum
+		speed = (FAST - SLOW)  *  (left_max - COLD) / (HOT - COLD)  +  SLOW;
+		speed = speed < SLOW ? IDLE : speed;
+		speed = speed > FAST ? FAST : speed;
+		printf(FORMAT2, amb / 1000, cpu / 1000, pwr / 1000, speed);
 
-      // Sleep before continuing
-      sleep(SLEEP);
-  }
+		// Convert to string and write to fan speed sysfs file
+		snprintf(str, BUFLEN, "%i", speed);
+		fp = fopen(LEFT_FAN, "w");
+		if (fp == NULL) {
+			printf("Could not open file %s\n", LEFT_FAN);
+			printf("Do you have sufficient priviliges (are you root?)\n");
+			return 1;
+		}
+		fputs(str, fp);
+		fclose(fp);
 
-  return 1;
+		// Sleep before continuing
+		sleep(SLEEP);
+	}
+
+	return 1;
 }
