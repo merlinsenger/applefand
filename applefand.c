@@ -27,6 +27,9 @@
 #define AMB "/sys/devices/platform/applesmc.768/temp3_input"    // TA0p, Ambient
 #define CPU "/sys/devices/platform/applesmc.768/temp9_input"	// TC1C, Central Processing Unit
 #define PWR "/sys/devices/platform/applesmc.768/temp34_input"   // Tp2H, Power Supply
+#define SOU "/sys/devices/platform/applesmc.768/temp28_input"   // TS2P, South Bridge Proximity
+#define GPU "/sys/devices/platform/applesmc.768/temp11_input"   // TG0H, Graphical Processing Unit Heatsink
+#define ODD "/sys/devices/platform/applesmc.768/temp24_input"   // TO0P, Optical Disc Drive Proximity
 
 // Fan sysfs output files
 #define LEFT_FAN "/sys/devices/platform/applesmc.768/fan3_min"
@@ -35,19 +38,19 @@
 #define BUFLEN 8
 
 // Temperature and fan speed range
-#define COLD 60000
+#define COLD 70000
 #define HOT 83000
 #define IDLE 940
-#define SLOW 1400
+#define SLOW 1200
 #define FAST 2100
 
 // Sleep time between fan speed adjustment
-#define SLEEP 2
+#define SLEEP 10
 
 // Program output
 #define FORMAT0 "applefand: Set speed between %i and %i rpm proportionally\n"
 #define FORMAT1 "applefand: based on the temperature between %i°C and %i°C\n"
-#define FORMAT2 "applefand: AMB %i°C CPU %i°C PWR %i°C, setting left fan to to %irpm\n"
+#define FORMAT2 "applefand: AMB %i°C, CPU %i°C, PWR %i°C, SOU %i°C, GPU %i°C, ODD %i°C, setting left fan to to %irpm\n"
 
 // Main function with infinite loop
 
@@ -72,8 +75,8 @@ int main()
 {
 	FILE *fp;
 	char str[BUFLEN];
-	int speed, amb, cpu, pwr;
-	int left_max;
+	int speed, amb, cpu, pwr, sou, gpu, odd;
+	int left_max, center_max, right_max;
 
 	printf(FORMAT0, SLOW, FAST);
 	printf(FORMAT1, COLD / 1000, HOT / 1000);
@@ -82,14 +85,19 @@ int main()
 		amb = readTemperature(AMB);
 		cpu = readTemperature(CPU);
 		pwr = readTemperature(PWR);
+		sou = readTemperature(SOU);
+		gpu = readTemperature(GPU);
+		odd = readTemperature(ODD);
 
 		left_max = pwr > cpu ? pwr : cpu;
+		center_max = sou;
+		right_max = gpu > odd ? gpu : odd;
 
 		// Calculate speed proportionally, then cap to minimum and maximum
 		speed = (FAST - SLOW)  *  (left_max - COLD) / (HOT - COLD)  +  SLOW;
 		speed = speed < SLOW ? IDLE : speed;
 		speed = speed > FAST ? FAST : speed;
-		printf(FORMAT2, amb / 1000, cpu / 1000, pwr / 1000, speed);
+		printf(FORMAT2, amb/1000, cpu/1000, pwr/1000, sou/1000, gpu/1000, odd/1000, speed);
 
 		// Convert to string and write to fan speed sysfs file
 		snprintf(str, BUFLEN, "%i", speed);
