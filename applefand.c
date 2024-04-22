@@ -30,6 +30,7 @@
 #define SOU "/sys/devices/platform/applesmc.768/temp28_input"   // TS2P, South Bridge Proximity
 #define GPU "/sys/devices/platform/applesmc.768/temp11_input"   // TG0H, Graphical Processing Unit Heatsink
 #define ODD "/sys/devices/platform/applesmc.768/temp24_input"   // TO0P, Optical Disc Drive Proximity
+#define LCD "/sys/devices/platform/applesmc.768/temp17_input"   // TL0p, Liquid Crystal Display
 
 // Fan sysfs output files
 #define LEFT_FAN   "/sys/devices/platform/applesmc.768/fan3_min"
@@ -40,7 +41,7 @@
 #define BUFLEN 8
 
 // Temperature and fan speed range
-#define COLD 60000
+#define COLD 55000
 #define HOT 83000
 #define LEFT_IDLE 940
 #define LEFT_SLOW 1200
@@ -53,11 +54,11 @@
 #define RIGHT_FAST 3800
 
 // Sleep time between fan speed adjustment
-#define SLEEP 1
+#define SLEEP 10
 
 // Program output
 #define FORMAT1 "applefand: Set speeds proportionally based on the temperature between %i°C and %i°C\n"
-#define FORMAT2 "applefand: AMB %i°C, CPU %i°C, PWR %i°C, SOU %i°C, GPU %i°C, ODD %i°C, setting fans to %irpm %irpm %irpm\n"
+#define FORMAT2 "applefand: AMB %i°C, CPU %i°C, PWR %i°C, SOU %i°C, GPU %i°C, ODD %i°C, LCD %i°C, setting fans to %irpm %irpm %irpm\n"
 
 // Main function with infinite loop
 
@@ -103,7 +104,7 @@ int main()
 {
 	FILE *fp;
 	char str[BUFLEN];
-	int left_speed, center_speed, right_speed, amb, cpu, pwr, sou, gpu, odd;
+	int left_speed, center_speed, right_speed, amb, cpu, pwr, sou, gpu, odd, lcd;
 	int left_max, center_max, right_max;
 
 	printf(FORMAT1, COLD / 1000, HOT / 1000);
@@ -115,17 +116,20 @@ int main()
 		sou = readTemperature(SOU);
 		gpu = readTemperature(GPU);
 		odd = readTemperature(ODD);
+		lcd = readTemperature(LCD);
 
 		left_max = pwr > cpu ? pwr : cpu;
+		left_max = lcd > left_max ?  lcd : left_max;
 		center_max = sou;
 		right_max = gpu > odd ? gpu : odd;
+		right_max = lcd > right_max ?  lcd : right_max;
 
 		left_speed   = calc(left_max, HOT, COLD, LEFT_IDLE, LEFT_SLOW, LEFT_FAST);
 		center_speed = calc(center_max, HOT, COLD, CENTER_IDLE, CENTER_SLOW, CENTER_FAST);
 		right_speed  = calc(right_max, HOT, COLD, RIGHT_IDLE, RIGHT_SLOW, RIGHT_FAST);
 
 		// Calculate speed proportionally, then cap to minimum and maximum
-		printf(FORMAT2, amb/1000, cpu/1000, pwr/1000, sou/1000, gpu/1000, odd/1000, left_speed, center_speed, right_speed);
+		printf(FORMAT2, amb/1000, cpu/1000, pwr/1000, sou/1000, gpu/1000, odd/1000, lcd/1000, left_speed, center_speed, right_speed);
 
 		setFan(LEFT_FAN, left_speed);
 		setFan(CENTER_FAN, center_speed);
